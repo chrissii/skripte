@@ -1,0 +1,181 @@
+SELECT                                                 
+  br.brand_name
+, br.sub_brand_name
+, ch.channel_name
+, day
+, date_name
+, videotype
+, chapter
+, devicecategory
+, format_name
+, video_name
+, clip_name
+-- , browser
+, trafficsource_default_channel
+, ad_position2 as ad_position
+, SUM (init) init
+-- , SUM (videostart_click) videostart_click
+, SUM (video_initial_play) video_initial_play
+, SUM (prerollad0_start) prerollad0_start
+, SUM (prerollad0_completed) prerollad0_completed
+, SUM (midrollad0_start) midrollad0_start
+, SUM (midrollad0_completed) midrollad0_completed
+, SUM (midrollad1_start) midrollad1_start
+, SUM (midrollad1_completed) midrollad1_completed
+, SUM (midrollad2_start) midrollad2_start
+, SUM (midrollad2_completed) midrollad2_completed
+, SUM (postrollad0_start) postrollad0_start
+, SUM (postrollad0_completed) postrollad0_completed
+, SUM (video_start) video_start
+, sum (video_10) video_10
+, sum (video_20) video_20
+, sum (video_30) video_30
+, sum (video_40) video_40
+, sum (video_50) video_50
+, sum (video_60) video_60
+, sum (video_70) video_70
+, sum (video_80) video_80
+, sum (video_90) video_90
+, SUM (video_completed) video_completed
+, SUM (lifecycle_abort) lifecycle_abort
+, SUM (vv) vv
+, SUM (marketable_vv) marketable_vv
+, SUM (case when ad_position2 = 'other' then 0 else ad_omit end) ad_omit
+, SUM (case when ad_position2 = 'other' then 0 else ad_start end) ad_start
+, SUM (case when ad_position2 = 'other' then 0 else ad_omit+ad_start end) as mais
+, SUM (case when ad_position2 like 'preroll%' then ad_omit+ad_start else 0 end) as mais_preroll
+, SUM (case when ad_position2 like 'midroll%' then ad_omit+ad_start else 0 end) as mais_midroll
+, SUM (case when ad_position2 like 'postroll%' then ad_omit+ad_start else 0 end) as mais_postroll
+
+                                                               
+FROM                                                  
+(                                                             
+SELECT                                                 
+  dataset
+, day
+, da.date_name
+, visitorid
+, customdimensions[40] as video_lifecycle_id
+, customdimensions[1] as brand
+  
+, customdimensions[4] as videotype
+, customdimensions[60] as video_name
+, customdimensions[5] as clip_name
+, customdimensions[41] as chapter
+, CASE WHEN (customdimensions[10] like 'preroll%' OR 
+             customdimensions[10] like 'midroll%' OR
+             customdimensions[10] like 'postroll%') THEN customdimensions[10]
+       ELSE 'other' END as ad_position2
+, customdimensions[13] as fehler            
+-- , device.browser
+-- , case when device.browser = 'Chrome' then 'Chrome' when device.browser = 'Firefox' then 'Firefox' when device.browser = 'Safari' then 'Safari'
+--   when device.browser = 'Android Webview' then 'Android Webview' when device.browser = 'Safari (in-app)' then 'Safari (in-app)' when device.browser = 'Samsung Internet' then 'Samsung Internet'
+--   when device.browser = 'Edge' then 'Edge' when device.browser = 'Internet Explorer' then 'Internet Explorer' ELSE 'Other' end as browser
+, customdimensions[3] as format_name
+, device.devicecategory  
+, CASE WHEN (trafficsource.source LIKE '(direct)' AND (trafficsource.medium LIKE '(not set)' or trafficsource.medium LIKE '(none)')) THEN 'direct'
+                   WHEN (trafficsource.medium LIKE 'organic') THEN 'organic search'
+                   WHEN ((trafficsource.source RLIKE '.*(facebook|twitter|whatsapp|gplus|pinterest|snapchat|copy_link|sms|youtube).*') OR trafficsource.medium RLIKE '^(social|social-network|social-media|sm|social network|social media)$') AND trafficsource.medium NOT RLIKE '(?iu)(social_paid)' THEN 'social'
+                   WHEN (trafficsource.medium RLIKE '(?iu)(social_paid)') THEN 'social paid'
+                   WHEN (trafficsource.medium='email') THEN 'email'
+                   WHEN (trafficsource.medium='referral') THEN 'referral'
+                   WHEN (trafficsource.medium RLIKE '^(cpc|ppc|paidsearch)$' AND trafficSource.adwordsClickInfo.adNetworkType NOT LIKE 'Content') THEN 'paid search'
+                   WHEN (trafficsource.medium RLIKE '^(display|cpm|banner)$' OR trafficSource.adwordsClickInfo.adNetworkType LIKE 'Content') THEN 'display'
+                   WHEN (trafficsource.medium RLIKE '(?iu)(affiliate)' OR trafficsource.medium RLIKE '(?iu)(affiliates)') THEN 'affiliate'
+                   ELSE 'other advertising' END AS trafficsource_default_channel
+                                                               
+, max (  case when eventinfo.eventcategory LIKE 'Init' then 1 else 0 end ) as        init
+-- , max (  case when eventinfo.eventcategory LIKE '%Videostart%Click%' then 1 else 0 end ) as      videostart_click
+, max (  case when eventinfo.eventcategory LIKE '%Video%Initial%Play%' then 1 else 0 end ) as video_initial_play
+, max (  case when eventinfo.eventcategory LIKE '%PrerollAd0%Start%' then 1 else 0 end ) as     prerollad0_start
+, max (  case when eventinfo.eventcategory LIKE '%PrerollAd0%Completed%' then 1 else 0 end ) as                 prerollad0_completed
+, max (  case when eventinfo.eventcategory LIKE '%Video%Start%' then 1 else 0 end ) as              video_start
+, max (  case when eventinfo.eventcategory LIKE '%Video%10%' then 1 else 0 end ) as   video_10
+, max (  case when eventinfo.eventcategory LIKE '%Video%20%' then 1 else 0 end ) as   video_20
+, max (  case when eventinfo.eventcategory LIKE '%Video%30%' then 1 else 0 end ) as   video_30
+, max (  case when eventinfo.eventcategory LIKE '%Video%40%' then 1 else 0 end ) as   video_40
+, max (  case when eventinfo.eventcategory LIKE '%Video%50%' then 1 else 0 end ) as   video_50
+, max (  case when eventinfo.eventcategory LIKE '%Video%60%' then 1 else 0 end ) as   video_60
+, max (  case when eventinfo.eventcategory LIKE '%Video%70%' then 1 else 0 end ) as   video_70
+, max (  case when eventinfo.eventcategory LIKE '%Video%80%' then 1 else 0 end ) as   video_80
+, max (  case when eventinfo.eventcategory LIKE '%Video%90%' then 1 else 0 end ) as   video_90
+, max (  case when eventinfo.eventcategory LIKE '%Video%Completed%' then 1 else 0 end ) as video_completed
+, max (  case when eventinfo.eventcategory LIKE '%MidrollAd0%Start%' then 1 else 0 end ) as    midrollad0_start
+, max (  case when eventinfo.eventcategory LIKE '%MidrollAd0%Completed%' then 1 else 0 end ) as                 midrollad0_completed
+, max (  case when eventinfo.eventcategory LIKE '%MidrollAd1%Start%' then 1 else 0 end ) as    midrollad1_start
+, max (  case when eventinfo.eventcategory LIKE '%MidrollAd1%Completed%' then 1 else 0 end ) as                 midrollad1_completed
+, max (  case when eventinfo.eventcategory LIKE '%MidrollAd2%Start%' then 1 else 0 end ) as    midrollad2_start
+, max (  case when eventinfo.eventcategory LIKE '%MidrollAd2%Completed%' then 1 else 0 end ) as                 midrollad2_completed
+, max (  case when eventinfo.eventcategory LIKE '%PostrollAd0%Start%' then 1 else 0 end ) as    postrollad0_start
+, max (  case when eventinfo.eventcategory LIKE '%PostrollAd0%Completed%' then 1 else 0 end ) as                 postrollad0_completed
+, max (  case when eventinfo.eventcategory LIKE '%Lifecycle%Abort%' then 1 else 0 end ) as       lifecycle_abort
+                                                               
+, sum (  case when eventinfo.eventcategory LIKE 'Ad%Omit%' then 1 else 0 end ) as        ad_omit               
+, sum (  case when eventinfo.eventcategory LIKE 'Ad%Start%' then 1 else 0 end ) as        ad_start
+                                                               
+, max ( case when customdimensions[4]='full' then 1 else 0 end ) as full                
+, max ( case when customdimensions[4]='short' then 1 else 0 end ) as short                       
+, max ( case when customdimensions[4]='live' then 1 else 0 end ) as live                               
+, sum ( case when type='EVENT' AND eventinfo.eventcategory IN ('Video Start','VideoStart','short','full','live','long') then 1 else 0 end ) AS vv
+, sum ( case when custommetrics[5] is null then 0 else custommetrics[5] end ) as ad_starts                                        
+, sum ( case when custommetrics[6] is null then 0 else custommetrics[6] end ) as ad_omits                                        
+, sum ( case when custommetrics[16] is null then 0 else custommetrics[16] end ) as marketable_vv                                       
+FROM kettle_source.ga_hits h
+LEFT OUTER JOIN kettle_business.dim_date da ON h.day = da.dim_date_id
+WHERE 1=1
+ AND day >= 20180905 
+  AND dataset IN (33485409)
+  AND customdimensions[40] is not null  
+  -- and customdimensions[3] in ('paula-kommt')
+  and lower (customdimensions[60]) like '%nacktgefragt%'
+GROUP BY                                                          
+  dataset
+, day
+, da.date_name
+, visitorid
+, customdimensions[40]
+, customdimensions[41]
+, customdimensions[1]
+, customdimensions[4]
+, customdimensions[60]
+, customdimensions[3]
+, customdimensions[5]
+, CASE WHEN (customdimensions[10] like 'preroll%' OR 
+             customdimensions[10] like 'midroll%' OR
+             customdimensions[10] like 'postroll%') THEN customdimensions[10]
+       ELSE 'other' END
+, customdimensions[13]
+-- , device.browser
+-- , case when device.browser = 'Chrome' then 'Chrome' when device.browser = 'Firefox' then 'Firefox' when device.browser = 'Safari' then 'Safari'
+-- when device.browser = 'Android Webview' then 'Android Webview' when device.browser = 'Safari (in-app)' then 'Safari (in-app)' when device.browser = 'Samsung Internet' then 'Samsung Internet'
+-- when device.browser = 'Edge' then 'Edge' when device.browser = 'Internet Explorer' then 'Internet Explorer' ELSE 'Other' end 
+, device.devicecategory
+, CASE WHEN (trafficsource.source LIKE '(direct)' AND (trafficsource.medium LIKE '(not set)' or trafficsource.medium LIKE '(none)')) THEN 'direct'
+                   WHEN (trafficsource.medium LIKE 'organic') THEN 'organic search'
+                   WHEN ((trafficsource.source RLIKE '.*(facebook|twitter|whatsapp|gplus|pinterest|snapchat|copy_link|sms|youtube).*') OR trafficsource.medium RLIKE '^(social|social-network|social-media|sm|social network|social media)$') AND trafficsource.medium NOT RLIKE '(?iu)(social_paid)' THEN 'social'
+                   WHEN (trafficsource.medium RLIKE '(?iu)(social_paid)') THEN 'social paid'
+                   WHEN (trafficsource.medium='email') THEN 'email'
+                   WHEN (trafficsource.medium='referral') THEN 'referral'
+                   WHEN (trafficsource.medium RLIKE '^(cpc|ppc|paidsearch)$' AND trafficSource.adwordsClickInfo.adNetworkType NOT LIKE 'Content') THEN 'paid search'
+                   WHEN (trafficsource.medium RLIKE '^(display|cpm|banner)$' OR trafficSource.adwordsClickInfo.adNetworkType LIKE 'Content') THEN 'display'
+                   WHEN (trafficsource.medium RLIKE '(?iu)(affiliate)' OR trafficsource.medium RLIKE '(?iu)(affiliates)') THEN 'affiliate'
+                   ELSE 'other advertising' END 
+)a            
+LEFT OUTER JOIN kettle_map.map_ga_brand_channel mch ON a.dataset = mch.dataset
+LEFT OUTER JOIN kettle_business.dim_channel ch ON mch.channel_key = ch.channel_key
+LEFT OUTER JOIN kettle_business.dim_brand br ON mch.brand_key = br.brand_key
+GROUP BY                                                          
+  br.brand_name
+, br.sub_brand_name
+, ch.channel_name
+, day
+, date_name
+, videotype
+, chapter
+, devicecategory
+, format_name
+, video_name
+, clip_name
+-- , browser
+, trafficsource_default_channel
+, ad_position2
